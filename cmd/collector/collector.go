@@ -35,23 +35,18 @@ type PriceResponse struct {
 
 // ---------------------------------------------------------------------------
 // Polymarket types
-//
-// outcomePrices is returned as a JSON string like "[\"0.83\",\"0.17\"]"
-// The first value is the probability of "Yes", second is "No".
 // ---------------------------------------------------------------------------
 
 type PolymarketMarket struct {
-	ID            string `json:"id"`
-	Question      string `json:"question"`
-	OutcomePrices string `json:"outcomePrices"` // stringified JSON array
+	ID            string  `json:"id"`
+	Question      string  `json:"question"`
+	OutcomePrices string  `json:"outcomePrices"`
 	VolumeNum     float64 `json:"volumeNum"`
-	Active        bool   `json:"active"`
-	Closed        bool   `json:"closed"`
+	Active        bool    `json:"active"`
+	Closed        bool    `json:"closed"`
 }
 
-// yesProbability parses outcomePrices and returns the "Yes" probability (0-1).
 func (m PolymarketMarket) yesProbability() (float64, error) {
-	// outcomePrices looks like: "[\"0.83\",\"0.17\"]"
 	var prices []string
 	if err := json.Unmarshal([]byte(m.OutcomePrices), &prices); err != nil {
 		return 0, err
@@ -63,7 +58,7 @@ func (m PolymarketMarket) yesProbability() (float64, error) {
 }
 
 // ---------------------------------------------------------------------------
-// Travelpayouts — fetch & save prices
+// Travelpayouts
 // ---------------------------------------------------------------------------
 
 func fetchPrices(token, origin, destination string) ([]PriceEntry, error) {
@@ -71,7 +66,6 @@ func fetchPrices(token, origin, destination string) ([]PriceEntry, error) {
 		"https://api.travelpayouts.com/v1/prices/cheap?origin=%s&destination=%s&token=%s&currency=usd",
 		origin, destination, token,
 	)
-
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -128,7 +122,6 @@ func savePrices(db *sql.DB, routeID int, entries []PriceEntry) {
 				departDate = &t
 			}
 		}
-
 		_, err := db.Exec(`
 			INSERT INTO prices (route_id, price, currency, depart_date, fetched_at)
 			VALUES ($1, $2, 'USD', $3, NOW())`,
@@ -155,11 +148,9 @@ func transferLabel(n int) string {
 }
 
 // ---------------------------------------------------------------------------
-// Polymarket — fetch & save events
+// Polymarket
 // ---------------------------------------------------------------------------
 
-// keywords we care about for flight price signals
-// phrases only — avoids partial matches like "war" in "Warriors", "oil" in "Oilers"
 var eventKeywords = []string{
 	" war ", "invasion", "nuclear weapon",
 	"pandemic", "who declares", "health emergency",
@@ -170,9 +161,7 @@ var eventKeywords = []string{
 }
 
 func fetchPolymarketEvents() ([]PolymarketMarket, error) {
-	// Fetch active markets ordered by volume — highest volume = most reliable signal
 	url := "https://gamma-api.polymarket.com/markets?active=true&closed=false&order=volume24hr&ascending=false&limit=100"
-
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(url)
 	if err != nil {
@@ -190,7 +179,6 @@ func fetchPolymarketEvents() ([]PolymarketMarket, error) {
 		return nil, fmt.Errorf("unmarshal error: %w", err)
 	}
 
-	// Filter to only markets relevant to world events that affect travel
 	var relevant []PolymarketMarket
 	for _, m := range markets {
 		q := strings.ToLower(m.Question)
@@ -211,7 +199,6 @@ func saveEvents(db *sql.DB, markets []PolymarketMarket) {
 			log.Printf("  Could not parse probability for market %s: %v", m.ID, err)
 			continue
 		}
-
 		_, err = db.Exec(`
 			INSERT INTO events (market_id, question, probability, volume, fetched_at)
 			VALUES ($1, $2, $3, $4, NOW())`,
@@ -226,10 +213,10 @@ func saveEvents(db *sql.DB, markets []PolymarketMarket) {
 }
 
 // ---------------------------------------------------------------------------
-// Main
+// Collector entry point — run with: go run collector.go
 // ---------------------------------------------------------------------------
 
-func main() {
+func collect() {
 	if err := godotenv.Load(); err != nil {
 		log.Fatal("Error loading .env file")
 	}
@@ -245,7 +232,6 @@ func main() {
 	}
 	fmt.Println("🐘 Connected to PostgreSQL!")
 
-	// --- Prices ---
 	origin := os.Getenv("ORIGIN")
 	if origin == "" {
 		log.Fatal("ORIGIN must be set in .env")
@@ -256,23 +242,21 @@ func main() {
 	}
 
 	destinations := []string{
-		// "LHR", // London
-		// "NRT", // Tokyo
-		// "SYD", // Sydney
-		// "CDG", // Paris
-		// "JFK", // New York
-		// "HKG", // Hong Kong
+		"LHR", // London
+		"NRT", // Tokyo
+		"SYD", // Sydney
+		"CDG", // Paris
+		"JFK", // New York
+		"HKG", // Hong Kong
 	}
 
 	for _, dest := range destinations {
 		fmt.Printf("\n🔍 %s → %s\n", origin, dest)
-
 		routeID, err := ensureRoute(db, origin, dest)
 		if err != nil {
 			log.Printf("  Error ensuring route: %v", err)
 			continue
 		}
-
 		entries, err := fetchPrices(token, origin, dest)
 		if err != nil {
 			log.Printf("  Error fetching prices: %v", err)
@@ -282,14 +266,11 @@ func main() {
 			fmt.Println("  ⚠️  No prices found")
 			continue
 		}
-
 		savePrices(db, routeID, entries)
 		time.Sleep(500 * time.Millisecond)
 	}
 
-	// --- World Events ---
 	fmt.Println("\n🌐 Fetching world event signals from Polymarket...")
-
 	events, err := fetchPolymarketEvents()
 	if err != nil {
 		log.Printf("Error fetching Polymarket events: %v", err)

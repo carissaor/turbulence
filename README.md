@@ -1,23 +1,21 @@
 # ✈️ flight-tracker
 
-> Flight price monitoring and prediction — because the world situation shouldn't catch your wallet off guard.
+> Flight price monitoring and prediction 
 
 ---
 
 ## Overview
 
-We all love travelling. But between global conflicts, pandemics, economic shifts, and geopolitical tensions, flight prices have never been more unpredictable. **flight-tracker** pulls real-time pricing data across multiple routes and world-event signals to build up a dataset for forecasting where prices are headed.
+I love travelling!! But between global conflicts, pandemics, economic shifts, and geopolitical tensions, flight prices have never been more unpredictable. **flight-tracker** pulls real-time pricing data across multiple routes and world-event signals to build up a dataset for forecasting where prices are headed.
 
 ---
 
 ## What It Does Right Now
 
-- Connects to a local PostgreSQL database
 - Fetches the cheapest available fares for 6 routes out of YVR via the Travelpayouts API
 - Pulls world-event signals from Polymarket — real money prediction markets for geopolitical events (conflicts, pandemics, oil prices, travel bans)
 - Saves each price snapshot and event probability with a timestamp so history accumulates over time
-
-Each run adds new rows to the database. Run it daily and you build up the price history and world-event correlation data needed for prediction.
+- REST API serving price history and world-event data to a React frontend
 
 ---
 
@@ -45,7 +43,7 @@ Uses the [Polymarket](https://polymarket.com) Gamma API (no API key required) to
 - Crude oil price movements
 - Financial crises
 
-Each market returns a 0–1 probability representing what traders think is the likelihood of that event occurring. These signals get stored alongside price snapshots for future correlation analysis.
+Each market returns a 0–1 probability representing what traders think is the likelihood of that event occurring. These get stored alongside price snapshots for correlation analysis.
 
 ---
 
@@ -54,9 +52,11 @@ Each market returns a 0–1 probability representing what traders think is the l
 - [x] Route price fetching (Travelpayouts)
 - [x] PostgreSQL storage with timestamped snapshots
 - [x] World-event signals (Polymarket)
-- [ ] Scheduled data collection (cron / cloud deploy)
-- [ ] Price prediction model
-- [ ] Route comparison and trend visualization
+- [x] REST API (Go)
+- [ ] React frontend dashboard
+- [ ] Scheduled data collection (Railway)
+- [ ] Deploy API to Railway, frontend to Vercel
+- [ ] Price prediction model (Python)
 - [ ] Price alert notifications
 
 ---
@@ -66,6 +66,7 @@ Each market returns a 0–1 probability representing what traders think is the l
 ### Prerequisites
 
 - Go 1.21+
+- Node.js 18+ (for frontend)
 - PostgreSQL running locally
 - [Travelpayouts API token](https://travelpayouts.com) (free)
 - No API key needed for Polymarket
@@ -97,43 +98,58 @@ TRAVELPAYOUTS_TOKEN=your_token_here
 ORIGIN=YVR
 ```
 
-### Run
+### Run the Collector
+
+Fetches latest prices and world events, saves to DB:
 
 ```bash
-go run main.go
+go run ./cmd/collector
 ```
 
-### Example Output
+### Run the API Server
 
+```bash
+go run ./cmd/api
 ```
-🐘 Connected to PostgreSQL!
 
-🔍 YVR → LHR
-  💰 $787 | departs 2026-04-27 | direct
+API runs on `http://localhost:8080`
 
-🔍 YVR → NRT
-  💰 $478 | departs 2026-09-28 | direct
+---
 
-🔍 YVR → SYD
-  💰 $1152 | departs 2026-04-20 | direct
+## API Endpoints
 
-🔍 YVR → CDG
-  💰 $624 | departs 2026-04-12 | direct
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/routes` | All routes with latest and lowest price |
+| GET | `/api/prices?route=YVR-LHR` | Price history for a specific route |
+| GET | `/api/events` | Latest Polymarket world-event signals |
 
-🔍 YVR → JFK
-  💰 $327 | departs 2026-04-30 | direct
+### Example Responses
 
-🔍 YVR → HKG
-  💰 $541 | departs 2026-05-03 | direct
+**GET /api/routes**
+```json
+[
+  {
+    "id": 1,
+    "origin": "YVR",
+    "destination": "LHR",
+    "lowest_price": 787,
+    "latest_price": 787,
+    "depart_date": "2026-04-27"
+  }
+]
+```
 
-🌐 Fetching world event signals from Polymarket...
-  Found 4 relevant markets
-  🌍 1% | US x Iran ceasefire by March 15?
-  🌍 18% | US x Iran ceasefire by March 31?
-  🌍 62% | Will crude oil hit $80 by end of Q2?
-  🌍 9% | Will WHO declare a health emergency in 2026?
-
-✅ Done!
+**GET /api/events**
+```json
+[
+  {
+    "question": "US x Iran ceasefire by March 31?",
+    "probability": 0.18,
+    "volume": 42381,
+    "fetched_at": "2026-03-13T20:42:51Z"
+  }
+]
 ```
 
 ---
@@ -142,11 +158,17 @@ go run main.go
 
 ```
 flight-tracker/
-├── main.go         # Fetch prices and world events, save to DB
-├── schema.sql      # Database table definitions
-├── .env.example    # Environment variable template
+├── cmd/
+│   ├── api/
+│   │   └── main.go          # REST API server
+│   └── collector/
+│       └── main.go          # Price + event collector
+├── frontend/                # React dashboard (Vite)
+├── schema.sql               # Database table definitions
+├── .env.example             # Environment variable template
 ├── go.mod
-└── go.sum
+├── go.sum
+└── README.md
 ```
 
 ---
