@@ -8,6 +8,8 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -16,10 +18,6 @@ import (
 
 // ---------------------------------------------------------------------------
 // Travelpayouts types
-//
-// The /v1/prices/cheap endpoint returns a map keyed by destination IATA code.
-// Each value is a map keyed by a stringified index ("0", "1", ...) containing
-// the cheapest price found for that departure date.
 // ---------------------------------------------------------------------------
 
 type PriceEntry struct {
@@ -30,14 +28,42 @@ type PriceEntry struct {
 	Transfers  int     `json:"transfers"`
 }
 
-// PriceResponse is map[destination]map[index]PriceEntry
 type PriceResponse struct {
 	Success bool                             `json:"success"`
 	Data    map[string]map[string]PriceEntry `json:"data"`
 }
 
 // ---------------------------------------------------------------------------
-// Fetch
+// Polymarket types
+//
+// outcomePrices is returned as a JSON string like "[\"0.83\",\"0.17\"]"
+// The first value is the probability of "Yes", second is "No".
+// ---------------------------------------------------------------------------
+
+type PolymarketMarket struct {
+	ID            string `json:"id"`
+	Question      string `json:"question"`
+	OutcomePrices string `json:"outcomePrices"` // stringified JSON array
+	VolumeNum     float64 `json:"volumeNum"`
+	Active        bool   `json:"active"`
+	Closed        bool   `json:"closed"`
+}
+
+// yesProbability parses outcomePrices and returns the "Yes" probability (0-1).
+func (m PolymarketMarket) yesProbability() (float64, error) {
+	// outcomePrices looks like: "[\"0.83\",\"0.17\"]"
+	var prices []string
+	if err := json.Unmarshal([]byte(m.OutcomePrices), &prices); err != nil {
+		return 0, err
+	}
+	if len(prices) == 0 {
+		return 0, fmt.Errorf("empty outcomePrices")
+	}
+	return strconv.ParseFloat(prices[0], 64)
+}
+
+// ---------------------------------------------------------------------------
+// Travelpayouts — fetch & save prices
 // ---------------------------------------------------------------------------
 
 func fetchPrices(token, origin, destination string) ([]PriceEntry, error) {
@@ -81,11 +107,6 @@ func fetchPrices(token, origin, destination string) ([]PriceEntry, error) {
 	return entries, nil
 }
 
-// ---------------------------------------------------------------------------
-// Save
-// ---------------------------------------------------------------------------
-
-// ensureRoute inserts the route if it doesn't exist and returns its id.
 func ensureRoute(db *sql.DB, origin, destination string) (int, error) {
 	var id int
 	err := db.QueryRow(`
@@ -134,6 +155,77 @@ func transferLabel(n int) string {
 }
 
 // ---------------------------------------------------------------------------
+// Polymarket — fetch & save events
+// ---------------------------------------------------------------------------
+
+// keywords we care about for flight price signals
+// phrases only — avoids partial matches like "war" in "Warriors", "oil" in "Oilers"
+var eventKeywords = []string{
+	" war ", "invasion", "nuclear weapon",
+	"pandemic", "who declares", "health emergency",
+	"travel ban", "airspace closed", "airspace ban",
+	"ceasefire", "peace deal",
+	"financial crisis", "global recession",
+	" oil ", "crude oil", "jet fuel",
+}
+
+func fetchPolymarketEvents() ([]PolymarketMarket, error) {
+	// Fetch active markets ordered by volume — highest volume = most reliable signal
+	url := "https://gamma-api.polymarket.com/markets?active=true&closed=false&order=volume24hr&ascending=false&limit=100"
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var markets []PolymarketMarket
+	if err := json.Unmarshal(body, &markets); err != nil {
+		return nil, fmt.Errorf("unmarshal error: %w", err)
+	}
+
+	// Filter to only markets relevant to world events that affect travel
+	var relevant []PolymarketMarket
+	for _, m := range markets {
+		q := strings.ToLower(m.Question)
+		for _, kw := range eventKeywords {
+			if strings.Contains(q, kw) {
+				relevant = append(relevant, m)
+				break
+			}
+		}
+	}
+	return relevant, nil
+}
+
+func saveEvents(db *sql.DB, markets []PolymarketMarket) {
+	for _, m := range markets {
+		prob, err := m.yesProbability()
+		if err != nil {
+			log.Printf("  Could not parse probability for market %s: %v", m.ID, err)
+			continue
+		}
+
+		_, err = db.Exec(`
+			INSERT INTO events (market_id, question, probability, volume, fetched_at)
+			VALUES ($1, $2, $3, $4, NOW())`,
+			m.ID, m.Question, prob, m.VolumeNum,
+		)
+		if err != nil {
+			log.Println("  Error inserting event:", err)
+		} else {
+			fmt.Printf("  🌍 %.0f%% | %s\n", prob*100, m.Question)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -153,6 +245,7 @@ func main() {
 	}
 	fmt.Println("🐘 Connected to PostgreSQL!")
 
+	// --- Prices ---
 	origin := os.Getenv("ORIGIN")
 	if origin == "" {
 		log.Fatal("ORIGIN must be set in .env")
@@ -162,14 +255,13 @@ func main() {
 		log.Fatal("TRAVELPAYOUTS_TOKEN must be set in .env")
 	}
 
-	// Routes to track — TODO: make this user configurable
 	destinations := []string{
-		"LHR", // London
-		"NRT", // Tokyo
-		"SYD", // Sydney
-		"CDG", // Paris
-		"JFK", // New York
-		"HKG", // Hong Kong
+		// "LHR", // London
+		// "NRT", // Tokyo
+		// "SYD", // Sydney
+		// "CDG", // Paris
+		// "JFK", // New York
+		// "HKG", // Hong Kong
 	}
 
 	for _, dest := range destinations {
@@ -193,6 +285,19 @@ func main() {
 
 		savePrices(db, routeID, entries)
 		time.Sleep(500 * time.Millisecond)
+	}
+
+	// --- World Events ---
+	fmt.Println("\n🌐 Fetching world event signals from Polymarket...")
+
+	events, err := fetchPolymarketEvents()
+	if err != nil {
+		log.Printf("Error fetching Polymarket events: %v", err)
+	} else if len(events) == 0 {
+		fmt.Println("  ⚠️  No relevant events found")
+	} else {
+		fmt.Printf("  Found %d relevant markets\n", len(events))
+		saveEvents(db, events)
 	}
 
 	fmt.Println("\n✅ Done!")

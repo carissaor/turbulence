@@ -6,18 +6,46 @@
 
 ## Overview
 
-We all love travelling. But between global conflicts, pandemics, economic shifts, and geopolitical tensions, flight prices have never been more unpredictable. **flight-tracker** pulls real-time pricing data across multiple routes and builds up a historical record to eventually forecast where prices are headed.
+We all love travelling. But between global conflicts, pandemics, economic shifts, and geopolitical tensions, flight prices have never been more unpredictable. **flight-tracker** pulls real-time pricing data across multiple routes and world-event signals to build up a dataset for forecasting where prices are headed.
 
 ---
 
 ## What It Does Right Now
 
 - Connects to a local PostgreSQL database
-- Fetches the cheapest available fares for 5 routes out of YVR via the Travelpayouts API
-- Saves each price snapshot with a timestamp so price history accumulates over time
-- Tracks routes: YVR → LHR, NRT, SYD, CDG, JFK
+- Fetches the cheapest available fares for 6 routes out of YVR via the Travelpayouts API
+- Pulls world-event signals from Polymarket — real money prediction markets for geopolitical events (conflicts, pandemics, oil prices, travel bans)
+- Saves each price snapshot and event probability with a timestamp so history accumulates over time
 
-Each run adds new rows to the database. Run it daily and you build up the price history needed for prediction.
+Each run adds new rows to the database. Run it daily and you build up the price history and world-event correlation data needed for prediction.
+
+---
+
+## Routes Tracked
+
+| Origin | Destination |
+|--------|-------------|
+| YVR | LHR — London |
+| YVR | NRT — Tokyo |
+| YVR | SYD — Sydney |
+| YVR | CDG — Paris |
+| YVR | JFK — New York |
+| YVR | HKG — Hong Kong |
+
+---
+
+## World Event Signals
+
+Uses the [Polymarket](https://polymarket.com) Gamma API (no API key required) to fetch prediction market probabilities for events that historically impact flight prices:
+
+- Wars and invasions
+- Pandemic declarations
+- Travel bans and airspace closures
+- Ceasefires and peace deals
+- Crude oil price movements
+- Financial crises
+
+Each market returns a 0–1 probability representing what traders think is the likelihood of that event occurring. These signals get stored alongside price snapshots for future correlation analysis.
 
 ---
 
@@ -25,8 +53,8 @@ Each run adds new rows to the database. Run it daily and you build up the price 
 
 - [x] Route price fetching (Travelpayouts)
 - [x] PostgreSQL storage with timestamped snapshots
+- [x] World-event signals (Polymarket)
 - [ ] Scheduled data collection (cron / cloud deploy)
-- [ ] World-event signal integration (conflicts, pandemics, travel bans)
 - [ ] Price prediction model
 - [ ] Route comparison and trend visualization
 - [ ] Price alert notifications
@@ -40,6 +68,7 @@ Each run adds new rows to the database. Run it daily and you build up the price 
 - Go 1.21+
 - PostgreSQL running locally
 - [Travelpayouts API token](https://travelpayouts.com) (free)
+- No API key needed for Polymarket
 
 ### Installation
 
@@ -80,19 +109,29 @@ go run main.go
 🐘 Connected to PostgreSQL!
 
 🔍 YVR → LHR
-  💰 $787 | departs 2026-04-27 | 1 stop
+  💰 $787 | departs 2026-04-27 | direct
 
 🔍 YVR → NRT
   💰 $478 | departs 2026-09-28 | direct
 
 🔍 YVR → SYD
-  💰 $1152 | departs 2026-04-20 | 1 stop
+  💰 $1152 | departs 2026-04-20 | direct
 
 🔍 YVR → CDG
-  💰 $624 | departs 2026-04-12 | 1 stop
+  💰 $624 | departs 2026-04-12 | direct
 
 🔍 YVR → JFK
   💰 $327 | departs 2026-04-30 | direct
+
+🔍 YVR → HKG
+  💰 $541 | departs 2026-05-03 | direct
+
+🌐 Fetching world event signals from Polymarket...
+  Found 4 relevant markets
+  🌍 1% | US x Iran ceasefire by March 15?
+  🌍 18% | US x Iran ceasefire by March 31?
+  🌍 62% | Will crude oil hit $80 by end of Q2?
+  🌍 9% | Will WHO declare a health emergency in 2026?
 
 ✅ Done!
 ```
@@ -103,7 +142,7 @@ go run main.go
 
 ```
 flight-tracker/
-├── main.go         # Fetch prices and save to DB
+├── main.go         # Fetch prices and world events, save to DB
 ├── schema.sql      # Database table definitions
 ├── .env.example    # Environment variable template
 ├── go.mod
@@ -117,16 +156,23 @@ flight-tracker/
 ```sql
 routes   -- city pairs being tracked (e.g. YVR → LHR)
 prices   -- price snapshots per route with timestamps
+events   -- Polymarket world-event probabilities with timestamps
 ```
 
 ---
 
 ## Data Sources
 
-| Source | Purpose |
-|---|---|
-| [Travelpayouts](https://travelpayouts.com) | Live flight prices by route |
-| NewsAPI / GDELT | World event signals *(planned)* |
+| Source | Purpose | Auth |
+|--------|---------|------|
+| [Travelpayouts](https://travelpayouts.com) | Live flight prices by route | API token |
+| [Polymarket](https://polymarket.com) | World-event prediction markets | None |
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) for details.
 
 ---
 
