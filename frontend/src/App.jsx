@@ -5,7 +5,7 @@ import {
 } from 'recharts'
 import './App.css'
 
-const API = 'http://localhost:8080'
+const API = 'https://flight-tracker-production-0262.up.railway.app'
 
 const DESTINATION_LABELS = {
   LHR: 'London',
