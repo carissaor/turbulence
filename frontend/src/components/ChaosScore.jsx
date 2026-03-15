@@ -1,25 +1,15 @@
-export default function ChaosScore({ score, level, label, insight, marketCount }) {
-  const color = {
-    LOW:      '#0d9488',
-    MODERATE: '#d97706',
-    HIGH:     '#dc2626',
-    EXTREME:  '#000000',
-    UNKNOWN:  '#94a3b8',
-  }[level] || '#94a3b8'
+import { CHAOS_COLORS, CHAOS_EMOJI } from '../constants';
 
-  const emoji = {
-    LOW:      '🟢',
-    MODERATE: '🟡',
-    HIGH:     '🔴',
-    EXTREME:  '🚨',
-    UNKNOWN:  '⚪',
-  }[level] || '⚪'
+export default function ChaosScore({ score, level, label, insight, marketCount }) {
+  const color = CHAOS_COLORS[level] ?? CHAOS_COLORS.UNKNOWN;
+  const emoji = CHAOS_EMOJI[level]  ?? CHAOS_EMOJI.UNKNOWN;
+  const isExtreme = level === 'EXTREME';
 
   return (
-    <div className="chaos-card">
+    <div className={`chaos-card ${isExtreme ? 'chaos-card--extreme' : ''}`}>
       <div className="chaos-left">
-        <div className="chaos-label">🌍 Global Chaos Score</div>
-        <div className="chaos-score" style={{ color }}>
+        <div className="chaos-label">Global Chaos Score</div>
+        <div className={`chaos-score ${isExtreme ? 'chaos-score--extreme' : ''}`} style={{ color }}>
           {score.toFixed(0)}
           <span className="chaos-score-max">/100</span>
         </div>
@@ -41,5 +31,5 @@ export default function ChaosScore({ score, level, label, insight, marketCount }
         <div className="chaos-meta">based on {marketCount} Polymarket signals</div>
       </div>
     </div>
-  )
+  );
 }

@@ -1,13 +1,19 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap");
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 :root {
   --bg: #f0f4f8;
   --bg2: #e6edf5;
   --surface: #ffffff;
   --surface2: #f7fafc;
-  --border: rgba(0,0,0,0.07);
+  --border: rgba(0, 0, 0, 0.07);
   --accent: #0891b2;
   --accent-light: #e0f2fe;
   --accent2: #06b6d4;
@@ -18,19 +24,24 @@
   --risk-low: #0d9488;
   --risk-medium: #d97706;
   --risk-high: #dc2626;
-  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
-  --shadow-lg: 0 4px 24px rgba(8,145,178,0.10), 0 1px 4px rgba(0,0,0,0.06);
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 4px 24px rgba(8, 145, 178, 0.1), 0 1px 4px rgba(0, 0, 0, 0.06);
 }
 
-html, body {
+html,
+body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   -webkit-font-smoothing: antialiased;
 }
 
-.app { min-height: 100vh; display: flex; flex-direction: column; }
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
 
 /* Header */
 .header {
@@ -51,7 +62,7 @@ html, body {
   gap: 16px;
 }
 .logo {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   font-size: 17px;
   font-weight: 800;
   color: var(--accent);
@@ -85,7 +96,7 @@ html, body {
 
 /* Section */
 .section-title {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.1em;
@@ -114,12 +125,15 @@ html, body {
   padding: 16px;
   cursor: pointer;
   text-align: left;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    transform 0.15s;
   width: 100%;
   box-shadow: var(--shadow);
 }
 .route-card:hover {
-  border-color: rgba(8,145,178,0.3);
+  border-color: rgba(8, 145, 178, 0.3);
   box-shadow: var(--shadow-lg);
   transform: translateY(-2px);
 }
@@ -135,7 +149,9 @@ html, body {
   gap: 8px;
   margin-bottom: 12px;
 }
-.flag { font-size: 20px; }
+.flag {
+  font-size: 20px;
+}
 .destination {
   font-size: 13px;
   font-weight: 600;
@@ -143,7 +159,7 @@ html, body {
 }
 
 .route-card-price {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   font-size: 24px;
   font-weight: 800;
   color: var(--accent-dark);
@@ -151,11 +167,25 @@ html, body {
   letter-spacing: -0.5px;
 }
 
-.route-card-meta { display: flex; flex-direction: column; gap: 4px; }
-.depart-date { font-size: 11px; color: var(--muted); }
-.price-diff { font-size: 11px; font-weight: 500; }
-.price-diff.up { color: var(--risk-high); }
-.price-diff.down { color: var(--risk-low); }
+.route-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.depart-date {
+  font-size: 11px;
+  color: var(--muted);
+}
+.price-diff {
+  font-size: 11px;
+  font-weight: 500;
+}
+.price-diff.up {
+  color: var(--risk-high);
+}
+.price-diff.down {
+  color: var(--risk-low);
+}
 
 /* Chart */
 .chart-wrapper {
@@ -166,7 +196,7 @@ html, body {
   box-shadow: var(--shadow);
 }
 .chart-title {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   font-size: 16px;
   font-weight: 700;
   color: var(--text);
@@ -180,7 +210,7 @@ html, body {
   font-size: 12px;
   color: var(--muted);
   font-weight: 400;
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
 }
 .chart-empty {
   color: var(--muted);
@@ -193,8 +223,16 @@ html, body {
 }
 
 /* Events */
-.events-list { list-style: none; display: flex; flex-direction: column; gap: 10px; }
-.events-empty { color: var(--muted); font-size: 13px; }
+.events-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.events-empty {
+  color: var(--muted);
+  font-size: 13px;
+}
 
 .event-item {
   background: var(--surface);
@@ -204,9 +242,15 @@ html, body {
   border-left: 4px solid var(--muted);
   box-shadow: var(--shadow);
 }
-.event-item.risk-low { border-left-color: var(--risk-low); }
-.event-item.risk-medium { border-left-color: var(--risk-medium); }
-.event-item.risk-high { border-left-color: var(--risk-high); }
+.event-item.risk-low {
+  border-left-color: var(--risk-low);
+}
+.event-item.risk-medium {
+  border-left-color: var(--risk-medium);
+}
+.event-item.risk-high {
+  border-left-color: var(--risk-high);
+}
 
 .event-question {
   font-size: 13px;
@@ -216,7 +260,11 @@ html, body {
   font-weight: 500;
 }
 
-.event-bar-row { display: flex; align-items: center; gap: 10px; }
+.event-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .event-bar {
   flex: 1;
   height: 5px;
@@ -228,10 +276,10 @@ html, body {
   height: 100%;
   border-radius: 3px;
   background: var(--accent2);
-  transition: width 0.6s cubic-bezier(0.4,0,0.2,1);
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 .event-pct {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   font-size: 12px;
   font-weight: 700;
   color: var(--text2);
@@ -239,14 +287,26 @@ html, body {
   text-align: right;
 }
 
-.risk-low .event-bar-fill { background: var(--risk-low); }
-.risk-medium .event-bar-fill { background: var(--risk-medium); }
-.risk-high .event-bar-fill { background: var(--risk-high); }
+.risk-low .event-bar-fill {
+  background: var(--risk-low);
+}
+.risk-medium .event-bar-fill {
+  background: var(--risk-medium);
+}
+.risk-high .event-bar-fill {
+  background: var(--risk-high);
+}
 
 @media (max-width: 600px) {
-  .main { padding: 24px 16px; }
-  .header { padding: 0 16px; }
-  .routes-grid { grid-template-columns: repeat(2, 1fr); }
+  .main {
+    padding: 24px 16px;
+  }
+  .header {
+    padding: 0 16px;
+  }
+  .routes-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .chaos-card {
@@ -260,7 +320,9 @@ html, body {
   align-items: center;
 }
 
-.chaos-left { flex: 0 0 auto; }
+.chaos-left {
+  flex: 0 0 auto;
+}
 
 .chaos-label {
   font-size: 11px;
@@ -272,7 +334,7 @@ html, body {
 }
 
 .chaos-score {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: "Plus Jakarta Sans", sans-serif;
   font-size: 64px;
   font-weight: 800;
   line-height: 1;
@@ -327,6 +389,55 @@ html, body {
 }
 
 @media (max-width: 600px) {
-  .chaos-card { flex-direction: column; gap: 16px; }
-  .chaos-score { font-size: 48px; }
+  .chaos-card {
+    flex-direction: column;
+    gap: 16px;
+  }
+  .chaos-score {
+    font-size: 48px;
+  }
+}
+
+@keyframes chaos-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+  50% {
+    box-shadow: 0 0 20px 6px rgba(220, 38, 38, 0.35);
+  }
+}
+
+@keyframes chaos-shake {
+  0% {
+    transform: scale(1);
+  }
+  15% {
+    transform: scale(1.4);
+  }
+  30% {
+    transform: scale(1.2);
+  }
+  50% {
+    transform: scale(1.35);
+  }
+  70% {
+    transform: scale(1.15);
+  }
+  85% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.chaos-card--extreme {
+  animation: chaos-pulse 10s ease-in-out infinite;
+  border-color: #dc2626 !important;
+}
+
+.chaos-score--extreme {
+  animation: chaos-shake 3s ease-in-out forwards;
+  display: inline-block;
 }
