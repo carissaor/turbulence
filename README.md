@@ -4,37 +4,25 @@
 
 I love travelling!! But between global conflicts, pandemics, economic shifts, and geopolitical tensions, flight prices have never been more unpredictable. **flight-tracker** pulls real-time pricing data across multiple routes and world-event signals to build up a dataset for forecasting where prices are headed.
 
+![Flight Tracker Dashboard](docs/dashboard.png)
+
+
 🌐 **[Live Demo](https://flight-tracker-pink.vercel.app)**
 
 ---
 
-## What It Does
+## Features
 
-- Fetches the cheapest available fares for 6 routes out of YVR via the Travelpayouts API
-- Pulls world-event signals from Polymarket — real money prediction markets for geopolitical events (conflicts, pandemics, oil prices, travel bans)
-- Calculates a **Global Chaos Score** (0–100) from weighted Polymarket probabilities to signal when prices are likely to spike
-- Saves each price snapshot and event probability with a timestamp so history accumulates over time
-- REST API serving price history, world-event data, and chaos score to a React frontend
-- Collector runs every 6 hours on Railway, building up price history automatically
+- Track cheapest fares for **6 international routes from YVR**
+- Search flights by **destination and departure month**
+- Calculates a **Global Chaos Score (0–100)** estimating travel instability
+- Scheduled collector updates flight prices and events every **6 hours**
 
----
-
-## Routes Tracked
-
-| Origin | Destination |
-|--------|-------------|
-| YVR | LHR — London |
-| YVR | NRT — Tokyo |
-| YVR | SYD — Sydney |
-| YVR | CDG — Paris |
-| YVR | JFK — New York |
-| YVR | HKG — Hong Kong |
-
----
+--- 
 
 ## Global Chaos Score
 
-A single 0–100 score computed from a weighted average of all Polymarket event probabilities. Higher-volume markets carry more weight since they represent more reliable crowd signals.
+A single 0–100 score computed from a weighted average of Polymarket event probabilities. Higher-volume markets carry more weight since they represent more reliable crowd signals. Ceasefire/peace markets are inverted (low ceasefire probability = high conflict = high chaos). Oil markets are weighted by price threshold — only extreme spikes meaningfully affect flight prices.
 
 | Score | Level | Meaning |
 |-------|-------|---------|
@@ -45,34 +33,25 @@ A single 0–100 score computed from a weighted average of all Polymarket event 
 
 ---
 
-## World Event Signals
+## Tech Stack
 
-Uses the [Polymarket](https://polymarket.com) Gamma API (no API key required) to fetch prediction market probabilities for events that historically impact flight prices:
+**Backend**
+- Go
+- PostgreSQL
+- REST API
 
-- Wars and invasions
-- Pandemic declarations
-- Travel bans and airspace closures
-- Ceasefires and peace deals
-- Crude oil price movements
-- Financial crises
+**Frontend**
+- React
+- Vite
+- Recharts
 
-Each market returns a 0–1 probability representing what traders think is the likelihood of that event occurring. These get stored alongside price snapshots for correlation analysis.
+**Infrastructure**
+- Railway (API + scheduled collector)
+- Vercel (frontend)
 
----
-
-## Roadmap
-
-- [x] Route price fetching (Travelpayouts)
-- [x] PostgreSQL storage with timestamped snapshots
-- [x] World-event signals (Polymarket)
-- [x] Global Chaos Score
-- [x] REST API (Go)
-- [x] React frontend dashboard
-- [x] Scheduled data collection (Railway cron)
-- [x] Deploy API to Railway, frontend to Vercel
-- [ ] Price prediction model (Python)
-- [ ] Price alert notifications
-
+**Data Sources**
+- Travelpayouts API — flight prices  
+- Polymarket Gamma API — world-event prediction markets
 ---
 
 ## Getting Started
@@ -141,48 +120,10 @@ Frontend runs on `http://localhost:5173`
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/routes` | All routes with latest and lowest price |
-| GET | `/api/prices?route=YVR-LHR` | Price history for a specific route |
+| GET | `/api/prices?route=YVR-LHR` | Price history by departure date |
+| GET | `/api/search?origin=YVR&destination=LHR&month=2026-06` | Search prices for a specific month |
 | GET | `/api/events` | Latest Polymarket world-event signals |
 | GET | `/api/chaos` | Global chaos score and level |
-
-### Example Responses
-
-**GET /api/routes**
-```json
-[
-  {
-    "id": 1,
-    "origin": "YVR",
-    "destination": "LHR",
-    "lowest_price": 787,
-    "latest_price": 787,
-    "depart_date": "2026-04-27"
-  }
-]
-```
-
-**GET /api/chaos**
-```json
-{
-  "score": 28.7,
-  "level": "MODERATE",
-  "label": "sus but manageable 👀",
-  "insight": "Could be nothing. Could be everything. Check back soon!",
-  "market_count": 9
-}
-```
-
-**GET /api/events**
-```json
-[
-  {
-    "question": "US x Iran ceasefire by March 31?",
-    "probability": 0.18,
-    "volume": 42381,
-    "fetched_at": "2026-03-13T20:42:51Z"
-  }
-]
-```
 
 ---
 
@@ -192,10 +133,13 @@ Frontend runs on `http://localhost:5173`
 flight-tracker/
 ├── cmd/
 │   ├── api/
-│   │   └── main.go          # REST API server
+│   │   └── main.go          # REST API server with DB caching
 │   └── collector/
 │       └── main.go          # Price + event collector (runs every 6h on Railway)
 ├── frontend/                # React dashboard (Vite)
+│   └── src/
+│       ├── components/      # ChaosScore, RouteCard, PriceChart, EventsPanel, SearchPanel
+│       └── constants.js     # Shared destination labels and emojis
 ├── schema.sql               # Database table definitions
 ├── Dockerfile               # API server Docker build
 ├── Dockerfile.collector     # Collector Docker build
@@ -206,34 +150,10 @@ flight-tracker/
 
 ---
 
-## Deployment
-
-| Service | Platform | Notes |
-|---------|----------|-------|
-| Frontend | Vercel | Auto-deploys on push |
-| API server | Railway | Always on |
-| Collector | Railway | Cron job every 6 hours |
-| PostgreSQL | Railway | Persistent |
-
----
-
-## Database Schema
-
-```sql
-routes   -- city pairs being tracked (e.g. YVR → LHR)
-prices   -- price snapshots per route with timestamps
-events   -- Polymarket world-event probabilities with timestamps
-```
-
----
-
-## Data Sources
-
-| Source | Purpose | Auth |
-|--------|---------|------|
-| [Travelpayouts](https://travelpayouts.com) | Live flight prices by route | API token |
-| [Polymarket](https://polymarket.com) | World-event prediction markets | None |
-
+### Future Improvements
+- Price prediction model
+- Flight price alerts
+- Additional routes
 ---
 
 ## License
