@@ -221,9 +221,7 @@ func saveEvents(db *sql.DB, markets []PolymarketMarket) {
 // ---------------------------------------------------------------------------
 
 func collect() {
-	if err := godotenv.Load(); err != nil {
-		log.Fatal("Error loading .env file")
-	}
+	godotenv.Load()
 
 	db, err := sql.Open("postgres", os.Getenv("DATABASE_URL"))
 	if err != nil {
