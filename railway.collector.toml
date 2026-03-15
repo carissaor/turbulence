@@ -1,0 +1,7 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile.collector"  # builds ./collector
+
+[deploy]
+startCommand = "./collector"             # binary from Dockerfile.collector
+cronSchedule = "0 */6 * * *"            # run every 6 hours
