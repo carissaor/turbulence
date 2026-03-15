@@ -3,7 +3,7 @@ export default function ChaosScore({ score, level, label, insight, marketCount }
     LOW:      '#0d9488',
     MODERATE: '#d97706',
     HIGH:     '#dc2626',
-    EXTREME:  '#7c3aed',
+    EXTREME:  '#000000',
     UNKNOWN:  '#94a3b8',
   }[level] || '#94a3b8'
 

@@ -7,6 +7,8 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -177,7 +179,6 @@ func handlePrices(db *sql.DB) http.HandlerFunc {
 // Returns the latest world event signals from Polymarket
 func handleEvents(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Return the most recent snapshot per unique market question
 		rows, err := db.Query(`
 			SELECT DISTINCT ON (question)
 				question, probability, volume, fetched_at
@@ -206,14 +207,82 @@ func handleEvents(db *sql.DB) http.HandlerFunc {
 	}
 }
 
+func adjustedSignal(question string, probability float64) (signal float64, weight float64) {
+	q := strings.ToLower(question)
+ 
+	// Peace/ceasefire markets — invert probability
+	// Low ceasefire probability = high conflict = high chaos
+	if strings.Contains(q, "ceasefire") || strings.Contains(q, "peace deal") || strings.Contains(q, "peace agreement") {
+		return 1 - probability, 2.0
+	}
+ 
+	// War/conflict/invasion markets — high weight, use probability directly
+	if strings.Contains(q, "declare war") || strings.Contains(q, "invasion") || strings.Contains(q, "invade") || strings.Contains(q, "attack") {
+		return probability, 3.0
+	}
+ 
+	// Pandemic/health emergency markets — high weight
+	if strings.Contains(q, "pandemic") || strings.Contains(q, "health emergency") || strings.Contains(q, "who declares") {
+		return probability, 2.5
+	}
+ 
+	// Travel ban / airspace markets — high weight, direct impact on flights
+	if strings.Contains(q, "travel ban") || strings.Contains(q, "airspace") {
+		return probability, 3.0
+	}
+ 
+	// Oil markets — weight by price threshold
+	// Only extreme price spikes meaningfully affect flight prices
+	if strings.Contains(q, "crude oil") || strings.Contains(q, " oil ") {
+		threshold := extractOilThreshold(q)
+		switch {
+		case threshold >= 200:
+			return probability, 3.0
+		case threshold >= 150:
+			return probability, 2.0
+		case threshold >= 120:
+			return probability, 1.0
+		default:
+			return probability, 0.2
+		}
+	}
+ 
+	// Default — use probability with neutral weight
+	return probability, 1.0
+}
+ 
+// extractOilThreshold tries to parse the price threshold from an oil market question
+// e.g. "Will Crude Oil hit $150 by end of March?" → 150
+func extractOilThreshold(q string) float64 {
+	// Find dollar sign and parse number after it
+	idx := strings.Index(q, "$")
+	if idx == -1 {
+		return 0
+	}
+	numStr := ""
+	for _, c := range q[idx+1:] {
+		if c >= '0' && c <= '9' {
+			numStr += string(c)
+		} else if c == ',' {
+			continue
+		} else {
+			break
+		}
+	}
+	val, err := strconv.ParseFloat(numStr, 64)
+	if err != nil {
+		return 0
+	}
+	return val
+}
+ 
 // GET /api/chaos
-// Returns a weighted average of all Polymarket event probabilities
+// Returns a weighted chaos score based on adjusted Polymarket signals
 func handleChaos(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Weighted average — higher volume markets count more
 		rows, err := db.Query(`
 			SELECT DISTINCT ON (question)
-				probability, volume
+				question, probability, volume
 			FROM events
 			ORDER BY question, fetched_at DESC
 		`)
@@ -222,38 +291,42 @@ func handleChaos(db *sql.DB) http.HandlerFunc {
 			return
 		}
 		defer rows.Close()
-
+ 
 		var totalWeight float64
 		var weightedSum float64
 		var count int
-
+ 
 		for rows.Next() {
+			var question string
 			var prob, volume float64
-			if err := rows.Scan(&prob, &volume); err != nil {
+			if err := rows.Scan(&question, &prob, &volume); err != nil {
 				continue
 			}
-			// Use volume as weight, minimum weight of 1 to avoid zero division
-			weight := volume + 1
-			weightedSum += prob * weight
-			totalWeight += weight
+ 
+			signal, typeWeight := adjustedSignal(question, prob)
+ 
+			// Volume weight — more reliable signals get more say
+			volumeWeight := (volume/100000 + 1) * typeWeight
+ 
+			weightedSum += signal * volumeWeight
+			totalWeight += volumeWeight
 			count++
 		}
-
+ 
 		if count == 0 || totalWeight == 0 {
 			writeJSON(w, ChaosResponse{
 				Score:       0,
 				Level:       "UNKNOWN",
-				Label:       "No data yet",
+				Label:       "no idea tbh 🤷",
 				Insight:     "Run the collector to start tracking world events.",
 				MarketCount: 0,
 			})
 			return
 		}
-
+ 
 		score := (weightedSum / totalWeight) * 100
-
 		level, label, insight := chaosLevel(score)
-
+ 
 		writeJSON(w, ChaosResponse{
 			Score:       math.Round(score*10) / 10,
 			Level:       level,

@@ -6,16 +6,6 @@ CREATE TABLE IF NOT EXISTS routes (
     UNIQUE (origin, destination)
 );
 
--- Flights: individual flight schedules from AviationStack
-CREATE TABLE IF NOT EXISTS flights (
-    id                   SERIAL PRIMARY KEY,
-    flight_iata          TEXT NOT NULL,
-    departure_airport    TEXT NOT NULL,
-    arrival_airport      TEXT NOT NULL,
-    scheduled_departure  TIMESTAMPTZ,
-    UNIQUE (flight_iata, scheduled_departure)
-);
-
 -- Prices: historical price snapshots from Travelpayouts
 CREATE TABLE IF NOT EXISTS prices (
     id           SERIAL PRIMARY KEY,
