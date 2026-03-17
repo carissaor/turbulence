@@ -37,9 +37,8 @@ type PriceHistoryResponse struct {
 }
 
 type PricePoint struct {
-	Price      float64 `json:"price"`
-	DepartDate string  `json:"depart_date"`
-	FetchedAt  string  `json:"fetched_at"`
+	Date  string  `json:"date"`
+	Price float64 `json:"price"`
 }
 
 type EventResponse struct {
@@ -98,10 +97,12 @@ func withCORS(h http.HandlerFunc) http.HandlerFunc {
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		w.Header().Set("Content-Type", "application/json")
+
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
+
 		h(w, r)
 	}
 }
@@ -122,24 +123,19 @@ func ensureRoute(db *sql.DB, origin, destination string) (int, error) {
 		INSERT INTO routes (origin, destination)
 		VALUES ($1, $2)
 		ON CONFLICT (origin, destination) DO UPDATE SET origin = EXCLUDED.origin
-		RETURNING id`,
-		origin, destination,
-	).Scan(&id)
+		RETURNING id
+	`, origin, destination).Scan(&id)
+
 	return id, err
 }
 
-func upsertPrice(db *sql.DB, routeID int, price float64, departDate *time.Time) {
+func insertPriceSnapshot(db *sql.DB, routeID int, price float64, departDate *time.Time) {
 	_, err := db.Exec(`
 		INSERT INTO prices (route_id, price, currency, depart_date, fetched_at)
 		VALUES ($1, $2, 'USD', $3, NOW())
-		ON CONFLICT (route_id, depart_date)
-		DO UPDATE SET
-			price = EXCLUDED.price,
-			fetched_at = NOW()`,
-		routeID, price, departDate,
-	)
+	`, routeID, price, departDate)
 	if err != nil {
-		log.Println("Error upserting price:", err)
+		log.Println("Error inserting price snapshot:", err)
 	}
 }
 
@@ -155,12 +151,19 @@ func handleRoutes(db *sql.DB) http.HandlerFunc {
 				r.id,
 				r.origin,
 				r.destination,
-				MIN(p.price) AS lowest_price,
-				(SELECT price FROM prices WHERE route_id = r.id ORDER BY fetched_at DESC LIMIT 1) AS latest_price,
-				(SELECT depart_date FROM prices WHERE route_id = r.id ORDER BY fetched_at DESC LIMIT 1) AS depart_date
+				COALESCE(MIN(p.price), 0) AS lowest_price,
+				COALESCE(lp.price, 0) AS latest_price,
+				lp.depart_date
 			FROM routes r
 			LEFT JOIN prices p ON p.route_id = r.id
-			GROUP BY r.id, r.origin, r.destination
+			LEFT JOIN LATERAL (
+				SELECT price, depart_date
+				FROM prices
+				WHERE route_id = r.id
+				ORDER BY fetched_at DESC
+				LIMIT 1
+			) lp ON true
+			GROUP BY r.id, r.origin, r.destination, lp.price, lp.depart_date
 			ORDER BY latest_price ASC
 		`)
 		if err != nil {
@@ -170,25 +173,44 @@ func handleRoutes(db *sql.DB) http.HandlerFunc {
 		defer rows.Close()
 
 		var routes []RouteResponse
+
 		for rows.Next() {
 			var rt RouteResponse
 			var departDate sql.NullTime
-			if err := rows.Scan(&rt.ID, &rt.Origin, &rt.Destination, &rt.LowestPrice, &rt.LatestPrice, &departDate); err != nil {
+
+			if err := rows.Scan(
+				&rt.ID,
+				&rt.Origin,
+				&rt.Destination,
+				&rt.LowestPrice,
+				&rt.LatestPrice,
+				&departDate,
+			); err != nil {
 				continue
 			}
+
 			if departDate.Valid {
 				rt.DepartDate = departDate.Time.Format("2006-01-02")
 			}
+
 			routes = append(routes, rt)
 		}
+
 		writeJSON(w, routes)
 	}
 }
 
-// GET /api/prices?route=YVR-LHR
+// GET /api/prices?route=YVR-LHR&mode=depart
+// mode=depart       -> latest price by departure date
+// mode=dailyLowest  -> lowest observed price by fetched day
 func handlePrices(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		route := r.URL.Query().Get("route")
+		mode := r.URL.Query().Get("mode")
+		if mode == "" {
+			mode = "depart"
+		}
+
 		if route == "" {
 			http.Error(w, "missing ?route= parameter (e.g. YVR-LHR)", http.StatusBadRequest)
 			return
@@ -197,16 +219,45 @@ func handlePrices(db *sql.DB) http.HandlerFunc {
 			http.Error(w, "route must be in format YVR-LHR", http.StatusBadRequest)
 			return
 		}
+
 		origin := route[:3]
 		dest := route[4:]
 
-		rows, err := db.Query(`
-			SELECT p.price, p.depart_date, p.fetched_at
-			FROM prices p
-			JOIN routes r ON r.id = p.route_id
-			WHERE r.origin = $1 AND r.destination = $2
-			ORDER BY p.depart_date ASC
-		`, origin, dest)
+		var (
+			rows *sql.Rows
+			err  error
+		)
+
+		switch mode {
+		case "dailyLowest":
+			rows, err = db.Query(`
+				SELECT
+					DATE(p.fetched_at) AS date,
+					MIN(p.price) AS price
+				FROM prices p
+				JOIN routes r ON r.id = p.route_id
+				WHERE r.origin = $1
+					AND r.destination = $2
+				GROUP BY DATE(p.fetched_at)
+				ORDER BY date ASC
+			`, origin, dest)
+
+		case "depart":
+			fallthrough
+		default:
+			rows, err = db.Query(`
+				SELECT DISTINCT ON (p.depart_date)
+					p.depart_date AS date,
+					p.price
+				FROM prices p
+				JOIN routes r ON r.id = p.route_id
+				WHERE r.origin = $1
+					AND r.destination = $2
+					AND p.depart_date IS NOT NULL
+				ORDER BY p.depart_date, p.fetched_at DESC
+			`, origin, dest)
+		}
+
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -216,18 +267,16 @@ func handlePrices(db *sql.DB) http.HandlerFunc {
 		var points []PricePoint
 		for rows.Next() {
 			var pt PricePoint
-			var departDate sql.NullTime
-			var fetchedAt sql.NullTime
-			if err := rows.Scan(&pt.Price, &departDate, &fetchedAt); err != nil {
+			var dt sql.NullTime
+
+			if err := rows.Scan(&dt, &pt.Price); err != nil {
 				continue
 			}
-			if departDate.Valid {
-				pt.DepartDate = departDate.Time.Format("2006-01-02")
+
+			if dt.Valid {
+				pt.Date = dt.Time.Format("2006-01-02")
+				points = append(points, pt)
 			}
-			if fetchedAt.Valid {
-				pt.FetchedAt = fetchedAt.Time.Format("2006-01-02T15:04:05Z")
-			}
-			points = append(points, pt)
 		}
 
 		writeJSON(w, PriceHistoryResponse{
@@ -240,7 +289,6 @@ func handlePrices(db *sql.DB) http.HandlerFunc {
 // GET /api/events
 func handleEvents(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		rows, err := db.Query(`
 			SELECT DISTINCT ON (question)
 				question,
@@ -269,12 +317,10 @@ func handleEvents(db *sql.DB) http.HandlerFunc {
 				continue
 			}
 
-			// Skip expired markets
 			if endDate.Valid && endDate.Time.Before(now) {
 				continue
 			}
 
-			// Skip resolved markets
 			if e.Probability <= 0.01 || e.Probability >= 0.99 {
 				continue
 			}
@@ -282,7 +328,6 @@ func handleEvents(db *sql.DB) http.HandlerFunc {
 			if endDate.Valid {
 				e.EndDate = endDate.Time.Format(time.RFC3339)
 			}
-
 			if fetchedAt.Valid {
 				e.FetchedAt = fetchedAt.Time.Format(time.RFC3339)
 			}
@@ -297,7 +342,6 @@ func handleEvents(db *sql.DB) http.HandlerFunc {
 // GET /api/chaos
 func handleChaos(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-
 		rows, err := db.Query(`
 			SELECT DISTINCT ON (question)
 				question,
@@ -316,11 +360,9 @@ func handleChaos(db *sql.DB) http.HandlerFunc {
 		var weightedSum float64
 		var totalWeight float64
 		var count int
-
 		now := time.Now()
 
 		for rows.Next() {
-
 			var question string
 			var prob float64
 			var volume float64
@@ -330,29 +372,21 @@ func handleChaos(db *sql.DB) http.HandlerFunc {
 				continue
 			}
 
-			// Ignore expired
 			if endDate.Valid && endDate.Time.Before(now) {
 				continue
 			}
 
-			// Ignore resolved
 			if prob <= 0.01 || prob >= 0.99 {
 				continue
 			}
 
 			signal, typeWeight := adjustedSignal(question, prob)
-
-			// Volume scaling
 			volumeWeight := math.Log10(volume+100) * typeWeight
-
-			// Uncertainty boost (markets near 50% matter most)
 			uncertainty := 1 - math.Abs(prob-0.5)*2
 
-			// Time-to-resolution boost
 			timeWeight := 1.0
 			if endDate.Valid {
 				days := endDate.Time.Sub(now).Hours() / 24
-
 				switch {
 				case days < 7:
 					timeWeight = 2.0
@@ -364,7 +398,6 @@ func handleChaos(db *sql.DB) http.HandlerFunc {
 			}
 
 			eventWeight := volumeWeight * uncertainty * timeWeight
-
 			weightedSum += signal * eventWeight
 			totalWeight += eventWeight
 			count++
@@ -382,7 +415,6 @@ func handleChaos(db *sql.DB) http.HandlerFunc {
 		}
 
 		score := math.Min((weightedSum/totalWeight)*120, 100)
-
 		level, label, insight := chaosLevel(score)
 
 		writeJSON(w, ChaosResponse{
@@ -398,8 +430,8 @@ func handleChaos(db *sql.DB) http.HandlerFunc {
 // GET /api/search
 func handleSearch(db *sql.DB, token string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		origin := r.URL.Query().Get("origin")
-		destination := r.URL.Query().Get("destination")
+		origin := strings.ToUpper(r.URL.Query().Get("origin"))
+		destination := strings.ToUpper(r.URL.Query().Get("destination"))
 		month := r.URL.Query().Get("month")
 
 		if origin == "" || destination == "" || month == "" {
@@ -455,7 +487,6 @@ func handleSearch(db *sql.DB, token string) http.HandlerFunc {
 			return
 		}
 
-		// Ensure route exists in DB
 		routeID, _ := ensureRoute(db, origin, destination)
 
 		var results []SearchResult
@@ -463,20 +494,20 @@ func handleSearch(db *sql.DB, token string) http.HandlerFunc {
 			if d.Price == 0 {
 				continue
 			}
+
 			departDate := ""
 			if len(d.DepartureAt) >= 10 {
 				departDate = d.DepartureAt[:10]
 			}
-			// Filter to only show results matching the requested month
+
 			if !strings.HasPrefix(departDate, month) {
 				continue
 			}
 
-			// Upsert price into DB
 			if routeID > 0 && departDate != "" {
 				t, err := time.Parse("2006-01-02", departDate)
 				if err == nil {
-					upsertPrice(db, routeID, d.Price, &t)
+					insertPriceSnapshot(db, routeID, d.Price, &t)
 				}
 			}
 
@@ -535,6 +566,7 @@ func adjustedSignal(question string, probability float64) (signal float64, weigh
 			return probability, 0.2
 		}
 	}
+
 	return probability, 1.0
 }
 
@@ -543,6 +575,7 @@ func extractOilThreshold(q string) float64 {
 	if idx == -1 {
 		return 0
 	}
+
 	numStr := ""
 	for _, c := range q[idx+1:] {
 		if c >= '0' && c <= '9' {
@@ -553,10 +586,12 @@ func extractOilThreshold(q string) float64 {
 			break
 		}
 	}
+
 	val, err := strconv.ParseFloat(numStr, 64)
 	if err != nil {
 		return 0
 	}
+
 	return val
 }
 

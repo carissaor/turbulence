@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS routes (
 -- Prices: historical price snapshots from Travelpayouts
 CREATE TABLE IF NOT EXISTS prices (
     id           SERIAL PRIMARY KEY,
-    route_id     INT NOT NULL REFERENCES routes(id),
+    route_id     INT NOT NULL REFERENCES routes(id) ON DELETE CASCADE, 
     price        NUMERIC NOT NULL,
     currency     TEXT NOT NULL DEFAULT 'USD',
     depart_date  DATE,
@@ -17,7 +17,6 @@ CREATE TABLE IF NOT EXISTS prices (
 );
 
 -- Events: world-situation signals from Polymarket
--- probability is a 0-1 value (0 = won't happen, 1 = certain to happen)
 CREATE TABLE events (
     id SERIAL PRIMARY KEY,
     question TEXT,
