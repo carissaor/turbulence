@@ -1,7 +1,5 @@
 # ✈️ flight-tracker
 
-## Overview
-
 I love travelling!! But between global conflicts, pandemics, economic shifts, and geopolitical tensions, flight prices have never been more unpredictable. **flight-tracker** pulls real-time pricing data across multiple routes and world-event signals to build up a dataset for forecasting where prices are headed.
 
 ![Flight Tracker Dashboard](docs/dashboard.png)

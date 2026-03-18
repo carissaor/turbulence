@@ -14,15 +14,20 @@ import { DESTINATION_LABELS } from "../constants";
 
 const API = import.meta.env.VITE_API_URL;
 
+const userTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+const formatDate = (dateStr, options) =>
+  new Intl.DateTimeFormat(undefined, { timeZone: userTZ, ...options }).format(
+    new Date(dateStr + "T12:00:00")
+  );
+
 export default function PriceChart({ route }) {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState("depart"); // "depart" | "dailyLowest"
+  const [mode, setMode] = useState("depart");
 
   useEffect(() => {
     if (!route) return;
-
-    // setLoading(true);
 
     axios
       .get(
@@ -149,7 +154,9 @@ export default function PriceChart({ route }) {
           <XAxis
             dataKey="date"
             tick={{ fontSize: 10, fill: "#888" }}
-            tickFormatter={(d) => d?.slice(5)}
+            tickFormatter={(d) =>
+              formatDate(d, { month: "short", day: "numeric" })
+            }
           />
           <YAxis
             tick={{ fontSize: 11, fill: "#888" }}
@@ -164,6 +171,13 @@ export default function PriceChart({ route }) {
               boxShadow: "0 4px 16px rgba(0,0,0,0.08)",
             }}
             formatter={(v) => [`$${Number(v).toLocaleString()}`, "Price"]}
+            labelFormatter={(d) =>
+              formatDate(d, {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })
+            }
             labelStyle={{ color: "#64748b", fontSize: 12 }}
           />
           <ReferenceLine
