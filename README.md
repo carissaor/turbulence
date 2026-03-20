@@ -125,29 +125,6 @@ Frontend runs on `http://localhost:5173`
 
 ---
 
-## Project Structure
-
-```
-flight-tracker/
-├── cmd/
-│   ├── api/
-│   │   └── main.go          # REST API server with DB caching
-│   └── collector/
-│       └── main.go          # Price + event collector (runs every 6h on Railway)
-├── frontend/                # React dashboard (Vite)
-│   └── src/
-│       ├── components/      # ChaosScore, RouteCard, PriceChart, EventsPanel, SearchPanel
-│       └── constants.js     # Shared destination labels and emojis
-├── schema.sql               # Database table definitions
-├── Dockerfile               # API server Docker build
-├── Dockerfile.collector     # Collector Docker build
-├── go.mod
-├── go.sum
-└── README.md
-```
-
----
-
 ### Future Improvements
 - Price prediction model
 - Flight price alerts
