@@ -24,7 +24,7 @@ func main() {
 	if err = db.Ping(); err != nil {
 		log.Fatal("Cannot reach database:", err)
 	}
-	log.Println("🐘 Connected to PostgreSQL!")
+	log.Println("Connected to PostgreSQL!")
 
 	token := os.Getenv("TRAVELPAYOUTS_TOKEN")
 
@@ -38,6 +38,6 @@ func main() {
 		port = "8080"
 	}
 
-	log.Printf("🚀 API server running", port)
+	log.Printf("API server running on port %s", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
 }

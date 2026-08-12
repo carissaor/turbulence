@@ -18,7 +18,7 @@ const userTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const formatDate = (dateStr, options) =>
   new Intl.DateTimeFormat(undefined, { timeZone: userTZ, ...options }).format(
-    new Date(dateStr + "T12:00:00")
+    new Date(dateStr + "T12:00:00"),
   );
 
 export default function PriceChart({ route }) {
@@ -31,7 +31,7 @@ export default function PriceChart({ route }) {
 
     axios
       .get(
-        `${API}/api/prices?route=${route.origin}-${route.destination}&mode=${mode}`
+        `${API}/api/prices?route=${route.origin}-${route.destination}&mode=${mode}`,
       )
       .then((res) => {
         const data =
@@ -61,10 +61,11 @@ export default function PriceChart({ route }) {
     );
   }
 
-  const prices = history.map((h) => h.price);
+  const visibleHistory = history.slice(-10);
+  const prices = visibleHistory.map((h) => h.price);
   const minPrice = Math.min(...prices);
   const avgPrice = Math.round(
-    prices.reduce((a, b) => a + b, 0) / prices.length
+    prices.reduce((a, b) => a + b, 0) / prices.length,
   );
 
   return (
@@ -147,7 +148,7 @@ export default function PriceChart({ route }) {
 
       <ResponsiveContainer width="100%" height={240}>
         <LineChart
-          data={history}
+          data={visibleHistory}
           margin={{ top: 8, right: 16, left: 0, bottom: 0 }}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" />
@@ -196,7 +197,7 @@ export default function PriceChart({ route }) {
             dataKey="price"
             stroke="#0891b2"
             strokeWidth={2.5}
-            dot={{ r: 3, fill: "#0891b2", strokeWidth: 0 }}
+            dot={false}
             activeDot={{ r: 6, fill: "#0e7490" }}
           />
         </LineChart>

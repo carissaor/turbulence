@@ -123,7 +123,6 @@ Frontend runs on `http://localhost:5173`
 | GET | `/api/events` | Latest Polymarket world-event signals |
 | GET | `/api/chaos` | Global chaos score and level |
 
----
 
 ### Future Improvements
 - Price prediction model
