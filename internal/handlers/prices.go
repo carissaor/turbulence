@@ -9,22 +9,36 @@ import (
 )
 
 // GET /api/prices?route=YVR-LHR&mode=depart
-// mode=depart       -> latest price by departure date
-// mode=dailyLowest  -> lowest observed price by fetched day
+// mode=depart  -> latest price by departure date
+// mode=history -> price history for a specific departure date
+//
+// Example history request:
+// /api/prices?route=YVR-LHR&mode=history&departDate=2026-10-15
 func HandlePrices(db *sql.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		route := r.URL.Query().Get("route")
 		mode := r.URL.Query().Get("mode")
+		departDate := r.URL.Query().Get("departDate")
+
 		if mode == "" {
 			mode = "depart"
 		}
 
 		if route == "" {
-			http.Error(w, "missing ?route= parameter (e.g. YVR-LHR)", http.StatusBadRequest)
+			http.Error(
+				w,
+				"missing ?route= parameter (e.g. YVR-LHR)",
+				http.StatusBadRequest,
+			)
 			return
 		}
+
 		if len(route) != 7 || route[3] != '-' {
-			http.Error(w, "route must be in format YVR-LHR", http.StatusBadRequest)
+			http.Error(
+				w,
+				"route must be in format YVR-LHR",
+				http.StatusBadRequest,
+			)
 			return
 		}
 
@@ -37,22 +51,38 @@ func HandlePrices(db *sql.DB) http.HandlerFunc {
 		)
 
 		switch mode {
-		case "dailyLowest":
+
+		// Price history for one specific departure date.
+		//
+		// Example:
+		// YVR -> LHR departing 2026-10-15
+		//
+		// This returns every price observation collected for
+		// that exact departure date, ordered by when it was fetched.
+		case "history":
+			if departDate == "" {
+				http.Error(
+					w,
+					"missing ?departDate= parameter (e.g. 2026-10-15)",
+					http.StatusBadRequest,
+				)
+				return
+			}
+
 			rows, err = db.Query(`
-				SELECT
+				SELECT DISTINCT ON (DATE(p.fetched_at))
 					DATE(p.fetched_at) AS date,
-					MIN(p.price) AS price
+					p.price
 				FROM prices p
 				JOIN routes r ON r.id = p.route_id
 				WHERE r.origin = $1
 					AND r.destination = $2
-				GROUP BY DATE(p.fetched_at)
-				ORDER BY date ASC
-			`, origin, dest)
+					AND p.depart_date = $3
+				ORDER BY DATE(p.fetched_at) ASC, p.fetched_at DESC
+			`, origin, dest, departDate)
 
+		// Latest known price for each available departure date.
 		case "depart":
-			fallthrough
-		default:
 			rows, err = db.Query(`
 				SELECT DISTINCT ON (p.depart_date)
 					p.depart_date AS date,
@@ -64,15 +94,28 @@ func HandlePrices(db *sql.DB) http.HandlerFunc {
 					AND p.depart_date IS NOT NULL
 				ORDER BY p.depart_date, p.fetched_at DESC
 			`, origin, dest)
+
+		default:
+			http.Error(
+				w,
+				"invalid mode; use depart or history",
+				http.StatusBadRequest,
+			)
+			return
 		}
 
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(
+				w,
+				err.Error(),
+				http.StatusInternalServerError,
+			)
 			return
 		}
 		defer rows.Close()
 
 		var points []m.PricePoint
+
 		for rows.Next() {
 			var pt m.PricePoint
 			var dt sql.NullTime
@@ -85,6 +128,15 @@ func HandlePrices(db *sql.DB) http.HandlerFunc {
 				pt.Date = dt.Time.Format("2006-01-02")
 				points = append(points, pt)
 			}
+		}
+
+		if err := rows.Err(); err != nil {
+			http.Error(
+				w,
+				err.Error(),
+				http.StatusInternalServerError,
+			)
+			return
 		}
 
 		mw.WriteJSON(w, m.PriceHistoryResponse{
