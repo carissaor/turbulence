@@ -16,7 +16,8 @@ import { DESTINATION_LABELS } from "../constants";
 
 const API = import.meta.env.VITE_API_URL;
 
-const userTZ = Intl.DateTimeFormat().resolvedOptions().timeZone;
+const userTZ =
+  Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const formatDate = (dateStr, options) => {
   if (!dateStr) return "";
@@ -40,15 +41,23 @@ const cleanPriceData = (prices) =>
     })) || [];
 
 const parseDateOnly = (dateStr) => {
-  const [year, month, day] = dateStr.split("-").map(Number);
+  const [year, month, day] = dateStr
+    .split("-")
+    .map(Number);
 
   return new Date(year, month - 1, day);
 };
 
 const toDateKey = (date) => {
   const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+
+  const month = String(
+    date.getMonth() + 1,
+  ).padStart(2, "0");
+
+  const day = String(
+    date.getDate(),
+  ).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
 };
@@ -58,17 +67,19 @@ export default function PriceChart({ route }) {
     ? `${route.origin}-${route.destination}`
     : "";
 
-  const [departureResult, setDepartureResult] = useState({
-    routeKey: "",
-    data: [],
-    error: "",
-  });
+  const [departureResult, setDepartureResult] =
+    useState({
+      routeKey: "",
+      data: [],
+      error: "",
+    });
 
-  const [historyResult, setHistoryResult] = useState({
-    key: "",
-    data: [],
-    error: "",
-  });
+  const [historyResult, setHistoryResult] =
+    useState({
+      key: "",
+      data: [],
+      error: "",
+    });
 
   const [view, setView] = useState({
     routeKey: "",
@@ -91,7 +102,8 @@ export default function PriceChart({ route }) {
   );
 
   /*
-   * If the route changes, treat it as a fresh departure-price view.
+   * If the route changes, treat it as a fresh
+   * departure-price view.
    */
   const currentView =
     view.routeKey === routeKey
@@ -103,10 +115,13 @@ export default function PriceChart({ route }) {
         };
 
   const mode = currentView.mode;
-  const selectedDepartDate = currentView.departDate;
+
+  const selectedDepartDate =
+    currentView.departDate;
 
   /*
-   * Departure prices belonging to the current route.
+   * Departure prices belonging to the
+   * current route.
    */
   const departures =
     departureResult.routeKey === routeKey
@@ -117,7 +132,9 @@ export default function PriceChart({ route }) {
    * All dates for which we have fare data.
    */
   const availableDateKeys = new Set(
-    departures.map((departure) => departure.date),
+    departures.map(
+      (departure) => departure.date,
+    ),
   );
 
   /*
@@ -131,13 +148,14 @@ export default function PriceChart({ route }) {
   /*
    * Date selected in the DayPicker calendar.
    */
-  const selectedCalendarDate = selectedDepartDate
-    ? parseDateOnly(selectedDepartDate)
-    : undefined;
+  const selectedCalendarDate =
+    selectedDepartDate
+      ? parseDateOnly(selectedDepartDate)
+      : undefined;
 
   /*
-   * Last future departure date determines how far
-   * forward the calendar can navigate.
+   * Last future departure date determines how
+   * far forward the calendar can navigate.
    */
   const lastAvailableDate =
     futureDepartures.length > 0
@@ -152,7 +170,7 @@ export default function PriceChart({ route }) {
    * A calendar date is selectable only when:
    *
    * 1. it is today or later
-   * 2. fare data exists for that exact departure date
+   * 2. fare data exists for that exact date
    */
   const isAvailableFutureDate = (date) => {
     const normalizedDate = new Date(date);
@@ -188,7 +206,9 @@ export default function PriceChart({ route }) {
 
         setDepartureResult({
           routeKey,
-          data: cleanPriceData(res.data.prices),
+          data: cleanPriceData(
+            res.data.prices,
+          ),
           error: "",
         });
       })
@@ -198,7 +218,8 @@ export default function PriceChart({ route }) {
         setDepartureResult({
           routeKey,
           data: [],
-          error: "Could not load price data.",
+          error:
+            "Could not load price data.",
         });
       });
 
@@ -239,7 +260,9 @@ export default function PriceChart({ route }) {
 
         setHistoryResult({
           key: historyKey,
-          data: cleanPriceData(res.data.prices),
+          data: cleanPriceData(
+            res.data.prices,
+          ),
           error: "",
         });
       })
@@ -249,7 +272,8 @@ export default function PriceChart({ route }) {
         setHistoryResult({
           key: historyKey,
           data: [],
-          error: "Could not load price history.",
+          error:
+            "Could not load price history.",
         });
       });
 
@@ -294,7 +318,8 @@ export default function PriceChart({ route }) {
 
   const error =
     mode === "depart"
-      ? departureResult.routeKey === routeKey
+      ? departureResult.routeKey ===
+        routeKey
         ? departureResult.error
         : ""
       : historyResult.key === historyKey
@@ -343,13 +368,17 @@ export default function PriceChart({ route }) {
    */
 
   /*
-   * Clicking a departure-price point opens Price History
-   * only if that departure date is today or later.
+   * Clicking a departure-price point opens
+   * Price History only if that departure
+   * date is today or later.
    */
-  const openPriceHistory = (departDate) => {
+  const openPriceHistory = (
+    departDate,
+  ) => {
     if (!departDate) return;
 
-    const date = parseDateOnly(departDate);
+    const date =
+      parseDateOnly(departDate);
 
     if (
       date < today ||
@@ -379,8 +408,8 @@ export default function PriceChart({ route }) {
   /*
    * Enter Price History mode.
    *
-   * If an already selected date is still valid,
-   * keep it.
+   * If an already selected date is still
+   * valid, keep it.
    *
    * Otherwise select the nearest upcoming
    * departure date with fare data.
@@ -412,10 +441,13 @@ export default function PriceChart({ route }) {
   /*
    * Calendar selection.
    */
-  const changeHistoryDeparture = (date) => {
+  const changeHistoryDeparture = (
+    date,
+  ) => {
     if (!date) return;
 
-    const departDate = toDateKey(date);
+    const departDate =
+      toDateKey(date);
 
     if (
       !isAvailableFutureDate(date)
@@ -449,7 +481,8 @@ export default function PriceChart({ route }) {
     }
 
     const isFuture =
-      parseDateOnly(payload.date) >= today;
+      parseDateOnly(payload.date) >=
+      today;
 
     return (
       <circle
@@ -490,7 +523,8 @@ export default function PriceChart({ route }) {
     }
 
     const isFuture =
-      parseDateOnly(payload.date) >= today;
+      parseDateOnly(payload.date) >=
+      today;
 
     return (
       <circle
@@ -544,6 +578,205 @@ export default function PriceChart({ route }) {
     opacity: disabled ? 0.6 : 1,
   });
 
+  /*
+   * ------------------------------------------------------------
+   * CHART
+   * ------------------------------------------------------------
+   */
+  const renderChart = () => {
+    if (loading) {
+      return (
+        <div className="chart-empty">
+          Loading...
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="chart-empty">
+          {error}
+        </div>
+      );
+    }
+
+    if (chartData.length === 0) {
+      return (
+        <div className="chart-empty">
+          {mode === "history"
+            ? "No price history yet for this departure date."
+            : "No price data yet — search a route above to start building history."}
+        </div>
+      );
+    }
+
+    return (
+      <>
+        {/*
+         * --------------------------------------------------------
+         * PRICE STATS
+         * --------------------------------------------------------
+         */}
+        <div className="chart-stats">
+          <div className="chart-stat">
+            <span className="chart-stat-label">
+              Lowest
+            </span>
+
+            <span className="chart-stat-value lowest">
+              $
+              {minPrice.toLocaleString()}
+            </span>
+          </div>
+
+          <div className="chart-stat">
+            <span className="chart-stat-label">
+              Average
+            </span>
+
+            <span className="chart-stat-value">
+              $
+              {avgPrice.toLocaleString()}
+            </span>
+          </div>
+        </div>
+
+        {/*
+         * --------------------------------------------------------
+         * PRICE CHART
+         * --------------------------------------------------------
+         */}
+        <ResponsiveContainer
+          width="100%"
+          height={240}
+        >
+          <LineChart
+            data={visibleHistory}
+            margin={{
+              top: 8,
+              right: 16,
+              left: 0,
+              bottom: 0,
+            }}
+          >
+            <CartesianGrid
+              strokeDasharray="3 3"
+              stroke="rgba(0,0,0,0.06)"
+            />
+
+            <XAxis
+              dataKey="date"
+              tick={{
+                fontSize: 10,
+                fill: "#888",
+              }}
+              tickFormatter={(d) =>
+                formatDate(d, {
+                  month: "short",
+                  day: "numeric",
+                })
+              }
+            />
+
+            <YAxis
+              tick={{
+                fontSize: 11,
+                fill: "#888",
+              }}
+              tickFormatter={(v) =>
+                `$${v}`
+              }
+              domain={[
+                "auto",
+                "auto",
+              ]}
+            />
+
+            <Tooltip
+              contentStyle={{
+                background: "#fff",
+                border:
+                  "1px solid #e2e8f0",
+                borderRadius: 8,
+                boxShadow:
+                  "0 4px 16px rgba(0,0,0,0.08)",
+              }}
+              formatter={(v) => [
+                `$${Number(
+                  v,
+                ).toLocaleString()}`,
+                "Price",
+              ]}
+              labelFormatter={(d) =>
+                mode === "depart"
+                  ? `Departing ${formatDate(
+                      d,
+                      {
+                        month:
+                          "short",
+                        day:
+                          "numeric",
+                        year:
+                          "numeric",
+                      },
+                    )}`
+                  : `Checked ${formatDate(
+                      d,
+                      {
+                        month:
+                          "short",
+                        day:
+                          "numeric",
+                        year:
+                          "numeric",
+                      },
+                    )}`
+              }
+              labelStyle={{
+                color: "#64748b",
+                fontSize: 12,
+              }}
+            />
+
+            {hasPriceMovement && (
+              <ReferenceLine
+                y={avgPrice}
+                stroke="#94a3b8"
+                strokeDasharray="4 4"
+                label={{
+                  value: "avg",
+                  position: "right",
+                  fontSize: 10,
+                  fill: "#94a3b8",
+                }}
+              />
+            )}
+
+            <Line
+              type="monotone"
+              dataKey="price"
+              stroke="#0891b2"
+              strokeWidth={2.5}
+              dot={
+                mode === "depart"
+                  ? renderDepartureDot
+                  : false
+              }
+              activeDot={
+                mode === "depart"
+                  ? renderActiveDepartureDot
+                  : {
+                      r: 6,
+                      fill: "#0e7490",
+                    }
+              }
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </>
+    );
+  };
+
   return (
     <div className="chart-wrapper">
       {/*
@@ -554,16 +787,19 @@ export default function PriceChart({ route }) {
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
+          justifyContent:
+            "space-between",
           alignItems: "flex-start",
           gap: 12,
           flexWrap: "wrap",
-          marginBottom: 12,
+          marginBottom: 16,
         }}
       >
         <h2
           className="chart-title"
-          style={{ margin: 0 }}
+          style={{
+            margin: 0,
+          }}
         >
           {route.origin} →{" "}
           {route.destination}
@@ -614,12 +850,14 @@ export default function PriceChart({ route }) {
           <button
             type="button"
             disabled={
-              futureDepartures.length === 0
+              futureDepartures.length ===
+              0
             }
             onClick={showPriceHistory}
             style={tabStyle(
               mode === "history",
-              futureDepartures.length === 0,
+              futureDepartures.length ===
+                0,
             )}
           >
             Price history
@@ -629,318 +867,210 @@ export default function PriceChart({ route }) {
 
       {/*
        * ----------------------------------------------------------
-       * CALENDAR
+       * DEPARTURE PRICE VIEW
        * ----------------------------------------------------------
        *
-       * Opens on current month.
-       * Cannot navigate before current month.
-       * Dates before today are disabled.
-       * Dates without fare data are disabled.
+       * No calendar is shown here.
        */}
-      {mode === "history" &&
-        futureDepartures.length > 0 && (
-          <div
-            style={{
-              marginBottom: 20,
-              padding: 16,
-              background: "#f8fafc",
-              border:
-                "1px solid #e2e8f0",
-              borderRadius: 12,
-              display: "inline-block",
-            }}
-          >
+      {mode === "depart" &&
+        renderChart()}
+
+      {/*
+       * ----------------------------------------------------------
+       * PRICE HISTORY VIEW
+       * ----------------------------------------------------------
+       *
+       * Calendar and chart sit side by side.
+       *
+       * Calendar = left
+       * Chart    = right
+       *
+       * They wrap automatically on smaller screens.
+       */}
+      {mode === "history" && (
+        <div
+          style={{
+            display: "flex",
+            gap: 24,
+            alignItems: "flex-start",
+            flexWrap: "wrap",
+            width: "100%",
+          }}
+        >
+          {/*
+           * ------------------------------------------------------
+           * CALENDAR — LEFT
+           * ------------------------------------------------------
+           */}
+          {futureDepartures.length >
+            0 && (
             <div
               style={{
-                marginBottom: 4,
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#334155",
+                padding: 16,
+                background: "#f8fafc",
+                border:
+                  "1px solid #e2e8f0",
+                borderRadius: 12,
+
+                /*
+                 * Keep the calendar at its
+                 * natural width.
+                 */
+                flex: "0 0 auto",
+
+                /*
+                 * Prevent it from becoming
+                 * unnecessarily wide.
+                 */
+                maxWidth: "100%",
               }}
             >
-              Select departure date
-            </div>
-
-            <div
-              style={{
-                marginBottom: 8,
-                fontSize: 12,
-                color: "#64748b",
-              }}
-            >
-              Only upcoming dates with
-              fare data can be selected.
-            </div>
-
-            <DayPicker
-              mode="single"
-              selected={
-                selectedCalendarDate
-              }
-              onSelect={
-                changeHistoryDeparture
-              }
-
-              /*
-               * Always open at current month.
-               */
-              defaultMonth={
-                currentMonth
-              }
-
-              /*
-               * Prevent navigation to
-               * months before current month.
-               */
-              startMonth={
-                currentMonth
-              }
-
-              /*
-               * Don't navigate beyond our
-               * last future departure date.
-               */
-              endMonth={
-                lastAvailableDate
-              }
-
-              /*
-               * Disable past dates and
-               * dates without fare data.
-               */
-              disabled={(date) =>
-                !isAvailableFutureDate(
-                  date,
-                )
-              }
-
-              /*
-               * Give available dates
-               * a stronger appearance.
-               */
-              modifiers={{
-                available: (date) =>
-                  isAvailableFutureDate(
-                    date,
-                  ),
-              }}
-
-              modifiersStyles={{
-                available: {
-                  fontWeight: 700,
-                },
-              }}
-            />
-
-            {selectedDepartDate && (
               <div
                 style={{
-                  marginTop: 10,
-                  paddingTop: 10,
-                  borderTop:
-                    "1px solid #e2e8f0",
+                  marginBottom: 4,
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#334155",
+                }}
+              >
+                Select departure date
+              </div>
+
+              <div
+                style={{
+                  marginBottom: 8,
                   fontSize: 12,
                   color: "#64748b",
                 }}
               >
-                Showing history for{" "}
-                <strong
+                Only upcoming dates with
+                fare data can be selected.
+              </div>
+
+              <DayPicker
+                mode="single"
+                selected={
+                  selectedCalendarDate
+                }
+                onSelect={
+                  changeHistoryDeparture
+                }
+
+                /*
+                 * Always open at the
+                 * current month.
+                 */
+                defaultMonth={
+                  currentMonth
+                }
+
+                /*
+                 * Prevent navigation to
+                 * months before current
+                 * month.
+                 */
+                startMonth={
+                  currentMonth
+                }
+
+                /*
+                 * Do not navigate past the
+                 * last future departure.
+                 */
+                endMonth={
+                  lastAvailableDate
+                }
+
+                /*
+                 * Disable past dates and
+                 * dates without fare data.
+                 */
+                disabled={(date) =>
+                  !isAvailableFutureDate(
+                    date,
+                  )
+                }
+
+                /*
+                 * Give available dates a
+                 * stronger appearance.
+                 */
+                modifiers={{
+                  available: (date) =>
+                    isAvailableFutureDate(
+                      date,
+                    ),
+                }}
+                modifiersStyles={{
+                  available: {
+                    fontWeight: 700,
+                  },
+                }}
+              />
+
+              {selectedDepartDate && (
+                <div
                   style={{
-                    color: "#0f172a",
+                    marginTop: 10,
+                    paddingTop: 10,
+                    borderTop:
+                      "1px solid #e2e8f0",
+                    fontSize: 12,
+                    color: "#64748b",
                   }}
                 >
-                  {formatDate(
-                    selectedDepartDate,
-                    {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    },
-                  )}
-                </strong>
-              </div>
-            )}
-          </div>
-        )}
-
-      {/*
-       * ----------------------------------------------------------
-       * CHART CONTENT
-       * ----------------------------------------------------------
-       */}
-      {loading ? (
-        <div className="chart-empty">
-          Loading...
-        </div>
-      ) : error ? (
-        <div className="chart-empty">
-          {error}
-        </div>
-      ) : chartData.length === 0 ? (
-        <div className="chart-empty">
-          {mode === "history"
-            ? "No price history yet for this departure date."
-            : "No price data yet — search a route above to start building history."}
-        </div>
-      ) : (
-        <>
-          {/*
-           * ------------------------------------------------------
-           * PRICE STATS
-           * ------------------------------------------------------
-           */}
-          <div className="chart-stats">
-            <div className="chart-stat">
-              <span className="chart-stat-label">
-                Lowest
-              </span>
-
-              <span className="chart-stat-value lowest">
-                $
-                {minPrice.toLocaleString()}
-              </span>
-            </div>
-
-            <div className="chart-stat">
-              <span className="chart-stat-label">
-                Average
-              </span>
-
-              <span className="chart-stat-value">
-                $
-                {avgPrice.toLocaleString()}
-              </span>
-            </div>
-          </div>
-
-          {/*
-           * ------------------------------------------------------
-           * PRICE CHART
-           * ------------------------------------------------------
-           */}
-          <ResponsiveContainer
-            width="100%"
-            height={240}
-          >
-            <LineChart
-              data={visibleHistory}
-              margin={{
-                top: 8,
-                right: 16,
-                left: 0,
-                bottom: 0,
-              }}
-            >
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="rgba(0,0,0,0.06)"
-              />
-
-              <XAxis
-                dataKey="date"
-                tick={{
-                  fontSize: 10,
-                  fill: "#888",
-                }}
-                tickFormatter={(d) =>
-                  formatDate(d, {
-                    month: "short",
-                    day: "numeric",
-                  })
-                }
-              />
-
-              <YAxis
-                tick={{
-                  fontSize: 11,
-                  fill: "#888",
-                }}
-                tickFormatter={(v) =>
-                  `$${v}`
-                }
-                domain={[
-                  "auto",
-                  "auto",
-                ]}
-              />
-
-              <Tooltip
-                contentStyle={{
-                  background: "#fff",
-                  border:
-                    "1px solid #e2e8f0",
-                  borderRadius: 8,
-                  boxShadow:
-                    "0 4px 16px rgba(0,0,0,0.08)",
-                }}
-                formatter={(v) => [
-                  `$${Number(
-                    v,
-                  ).toLocaleString()}`,
-                  "Price",
-                ]}
-                labelFormatter={(d) =>
-                  mode === "depart"
-                    ? `Departing ${formatDate(
-                        d,
-                        {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        },
-                      )}`
-                    : `Checked ${formatDate(
-                        d,
-                        {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        },
-                      )}`
-                }
-                labelStyle={{
-                  color: "#64748b",
-                  fontSize: 12,
-                }}
-              />
-
-              {hasPriceMovement && (
-                <ReferenceLine
-                  y={avgPrice}
-                  stroke="#94a3b8"
-                  strokeDasharray="4 4"
-                  label={{
-                    value: "avg",
-                    position: "right",
-                    fontSize: 10,
-                    fill: "#94a3b8",
-                  }}
-                />
+                  Showing history for{" "}
+                  <strong
+                    style={{
+                      color: "#0f172a",
+                    }}
+                  >
+                    {formatDate(
+                      selectedDepartDate,
+                      {
+                        weekday:
+                          "short",
+                        month:
+                          "short",
+                        day:
+                          "numeric",
+                        year:
+                          "numeric",
+                      },
+                    )}
+                  </strong>
+                </div>
               )}
+            </div>
+          )}
 
-              <Line
-                type="monotone"
-                dataKey="price"
-                stroke="#0891b2"
-                strokeWidth={2.5}
-                dot={
-                  mode === "depart"
-                    ? renderDepartureDot
-                    : false
-                }
-                activeDot={
-                  mode === "depart"
-                    ? renderActiveDepartureDot
-                    : {
-                        r: 6,
-                        fill: "#0e7490",
-                      }
-                }
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </>
+          {/*
+           * ------------------------------------------------------
+           * CHART — RIGHT
+           * ------------------------------------------------------
+           */}
+          <div
+            style={{
+              /*
+               * Take all remaining space.
+               */
+              flex: "1 1 480px",
+
+              /*
+               * Important for Recharts
+               * inside a flex container.
+               */
+              minWidth: 0,
+
+              /*
+               * Give the chart enough room.
+               */
+              width: "100%",
+            }}
+          >
+            {renderChart()}
+          </div>
+        </div>
       )}
     </div>
   );
