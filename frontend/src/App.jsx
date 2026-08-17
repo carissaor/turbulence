@@ -54,10 +54,10 @@ export default function App() {
               <ChaosScore {...chaos} marketCount={chaos.market_count} />
             )}
 
-            {/* <section className="section">
+            <section className="section">
               <h2 className="section-title">Search Flights</h2>
               <SearchPanel />
-            </section> */}
+            </section>
 
             <section className="section">
               <h2 className="section-title">Routes</h2>

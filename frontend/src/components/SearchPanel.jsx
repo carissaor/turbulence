@@ -1,8 +1,17 @@
 import { useState } from "react";
 import axios from "axios";
-import { DESTINATION_LABELS, DESTINATION_EMOJI } from '../constants';
+import { DESTINATION_LABELS, DESTINATION_EMOJI } from "../constants";
 
 const API = import.meta.env.VITE_API_URL;
+
+const getCurrentMonth = () => {
+  const now = new Date();
+
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+
+  return `${year}-${month}`;
+};
 
 export default function SearchPanel() {
   const [destination, setDestination] = useState("LHR");
@@ -11,37 +20,49 @@ export default function SearchPanel() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const handleSearch = () => {
-    if (!month) return;
+  const handleSearch = async (e) => {
+    e?.preventDefault();
+    if (!month || loading) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setResults(null);
 
-    axios
-      .get(`${API}/api/search`, {
-        params: { origin: "YVR", destination, month },
-      })
-      .then((res) => {
-        setResults(res.data.results || []);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError("Failed to fetch prices. Try again.");
-        setLoading(false);
+    try {
+      const res = await axios.get(`${API}/api/search`, {
+        params: {
+          origin: "YVR",
+          destination,
+          month,
+        },
       });
+
+      setResults(res.data.results || []);
+    } catch (err) {
+      console.error("Flight search failed:", err);
+      const message = err.response?.data?.trim?.();
+      setError(message || "Failed to fetch prices. Try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <div className="search-panel">
-      <div className="search-controls">
+      <form className="search-controls" onSubmit={handleSearch}>
         <div className="search-field">
           <label className="search-label">From</label>
           <div className="search-static">YVR — Vancouver</div>
         </div>
-
         <div className="search-field">
-          <label className="search-label">To</label>
+          <label className="search-label" htmlFor="destination">
+            To
+          </label>
+
           <select
+            id="destination"
             className="search-select"
             value={destination}
             onChange={(e) => setDestination(e.target.value)}
@@ -55,24 +76,28 @@ export default function SearchPanel() {
         </div>
 
         <div className="search-field">
-          <label className="search-label">Departure Month</label>
+          <label className="search-label" htmlFor="departure-month">
+            Departure Month
+          </label>
+
           <input
+            id="departure-month"
             type="month"
             className="search-input"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            min={new Date().toISOString().slice(0, 7)}
+            min={getCurrentMonth()}
           />
         </div>
 
         <button
+          type="submit"
           className="search-btn"
-          onClick={handleSearch}
           disabled={!month || loading}
         >
           {loading ? "Searching..." : "Search Flights"}
         </button>
-      </div>
+      </form>
 
       {error && <div className="search-error">{error}</div>}
 
@@ -82,21 +107,42 @@ export default function SearchPanel() {
 
       {results && results.length > 0 && (
         <ul className="search-results">
-          {results.map((r, i) => (
-            <li key={i} className="search-result-item">
-              <div className="result-route">
-                <span className="result-flag">{DESTINATION_EMOJI[r.destination]}</span>
-                <span className="result-dest">YVR → {r.destination}</span>
-                <span className="result-airline">{r.airline}</span>
-              </div>
-              <div className="result-right">
-                <div className="result-price">${r.price.toLocaleString()}</div>
-                <div className="result-meta">
-                  {r.depart_date?.slice(0, 10)} · {r.transfers === 0 ? "Direct" : `${r.transfers} stop${r.transfers > 1 ? "s" : ""}`}
+          {results.map((r) => {
+            const resultKey = [
+              r.destination,
+              r.depart_date,
+              r.airline,
+              r.price,
+              r.transfers,
+            ].join("-");
+
+            return (
+              <li key={resultKey} className="search-result-item">
+                <div className="result-route">
+                  <span className="result-flag">
+                    {DESTINATION_EMOJI[r.destination]}
+                  </span>
+
+                  <span className="result-dest">YVR → {r.destination}</span>
+
+                  <span className="result-airline">{r.airline}</span>
                 </div>
-              </div>
-            </li>
-          ))}
+
+                <div className="result-right">
+                  <div className="result-price">
+                    ${Number(r.price).toLocaleString()}
+                  </div>
+
+                  <div className="result-meta">
+                    {r.depart_date?.slice(0, 10)} ·{" "}
+                    {r.transfers === 0
+                      ? "Direct"
+                      : `${r.transfers} stop${r.transfers > 1 ? "s" : ""}`}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
