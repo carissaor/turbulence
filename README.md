@@ -38,7 +38,7 @@ Currently tracked destinations include:
 
 Turbulence is split into independently deployed frontend, backend, database, and data-collection components.
 
-```mermaid
+```text
     User[User] --> Frontend[React + Vite Frontend]
 
     Frontend -->|REST API| API[Go API]
