@@ -2,7 +2,7 @@ package db
 
 import (
 	"database/sql"
-	"log"
+	"fmt"
 	"time"
 )
 
@@ -18,12 +18,53 @@ func EnsureRoute(db *sql.DB, origin, destination string) (int, error) {
 	return id, err
 }
 
-func InsertPriceSnapshot(db *sql.DB, routeID int, price float64, departDate *time.Time) {
-	_, err := db.Exec(`
-		INSERT INTO prices (route_id, price, currency, depart_date, fetched_at)
-		VALUES ($1, $2, 'USD', $3, NOW())
-	`, routeID, price, departDate)
-	if err != nil {
-		log.Println("Error inserting price snapshot:", err)
+func InsertPriceSnapshot(
+	db *sql.DB,
+	routeID int,
+	price float64,
+	departDate *time.Time,
+) error {
+	if routeID <= 0 {
+		return fmt.Errorf(
+			"invalid route ID: %d",
+			routeID,
+		)
 	}
+
+	if price <= 0 {
+		return fmt.Errorf(
+			"invalid price: %.2f",
+			price,
+		)
+	}
+
+	if departDate == nil {
+		return fmt.Errorf(
+			"departure date is required",
+		)
+	}
+
+	_, err := db.Exec(`
+		INSERT INTO prices (
+			route_id,
+			price,
+			currency,
+			depart_date,
+			fetched_at
+		)
+		VALUES ($1, $2, 'USD', $3, NOW())
+	`,
+		routeID,
+		price,
+		departDate,
+	)
+
+	if err != nil {
+		return fmt.Errorf(
+			"insert price snapshot: %w",
+			err,
+		)
+	}
+
+	return nil
 }
